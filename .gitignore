@@ -65,6 +65,7 @@ allure-report/
 **/screenshots/
 playwright-report/
 .pytest_cache/
+.playwright-mcp/
 
 # Microsoft Office temp/lock files
 ~$*
