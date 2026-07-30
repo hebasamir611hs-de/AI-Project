@@ -32,8 +32,32 @@ and signed off via `analyze-pbi` (or `quick-test-cases`), stop and do that first
 4. **Inject the batch** — prefer `mcp__azure-devops__execute_qa_feedback` for the full
    approved set in one call. Use `mcp__azure-devops__create_english_test_case` /
    `mcp__azure-devops__create_arabic_test_case` only for individual cases or fallback.
-5. **Report back** — how many TCs were created and their Azure work item IDs.
-6. **Handle rejections** — if any case is rejected, fix the field that caused it and
+5. **Ensure a Test Plan + Suite exist for the injected cases.** `execute_qa_feedback`
+   links each Test Case to its parent PBI (`Tested By` reverse link) but does **not**
+   create any Test Plan/Suite — without one, the cases are invisible in the Azure Test
+   Plans UI even though they're correctly linked.
+   - Determine the PBI's iteration path (sprint) from the PBI you just injected under.
+   - `create_test_plan` is **not** documented as idempotent (unlike
+     `ensure_bug_query_hierarchy` below) — calling it twice for the same sprint risks
+     duplicate plans. **Ask the user once** whether a Test Plan already exists for this
+     sprint before creating one; if they don't know or say no, call
+     `mcp__azure-devops__create_test_plan(sprint_input=<iteration path>)`.
+   - Single PBI: `mcp__azure-devops__create_test_suite_for_pbi(plan_id, pbi_id)` — a
+     requirement-based suite that **auto-populates** from the `Tested By` links already
+     created in step 4, no re-linking needed.
+   - Multiple PBIs in the same sprint in one pass (e.g. injecting a whole sprint):
+     `mcp__azure-devops__create_test_suites_for_sprint(plan_id, sprint_input)` creates
+     one such suite per PBI in a single call — prefer this over calling the single-PBI
+     variant in a loop.
+   - Spot-check with `mcp__azure-devops__get_test_cases_from_suite(plan_id, suite_id)`
+     that `total_test_cases` matches what you just injected.
+6. **Provision the bug-query hierarchy** — call
+   `mcp__azure-devops__ensure_bug_query_hierarchy(backlog_id=<PBI ID>)` once per PBI
+   just injected. Idempotent — safe to call even if it already exists.
+7. **Report back** — how many TCs were created and their Azure work item IDs, the Test
+   Plan/Suite IDs (created or reused), and the bug-query hierarchy outcome
+   (created/existing/error).
+8. **Handle rejections** — if any case is rejected, fix the field that caused it and
    retry. **Never silently skip a case.**
 
 ## Optional follow-up
